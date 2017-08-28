@@ -52,9 +52,11 @@ sub tool {
         $self->tool_step_welcome;
     }
     elsif ( $step eq 'results' ) {
+        # $self->tool_step_results;
         $self->tool_step_results;
     }
     elsif ( $step eq 'diff' ) {
+        #$self->show_diff;
         $self->show_diff;
     }
     elsif ( $step eq 'cancel' ) {
@@ -73,7 +75,7 @@ sub tool_step_welcome {
     my ( $self, $args ) = @_;
     my $cgi = $self->{'cgi'};
 
-    my $template = $self->get_template( { file => 'tool-step-welcome.tt' } );
+    my $template = $self->get_template({ file => 'tool-step-welcome.tt' });
 
     if ( $args->{'error'} ) {
         $template->param( error => $args->{'error'} );
@@ -93,34 +95,30 @@ sub tool_step_results {
     my $rec = Koha::Upload->new->get( { id => $id, filehandle => 1 } );
     my $fh  = $rec->{fh};
 
-    my @good_rows;
-    my @bad_rows;
+    my $all_updates = _read_csv($fh);
 
-    my $csv = Text::CSV->new( { binary => 1 } )    # should set binary attribute.
-        or die "Cannot use CSV: " . Text::CSV->error_diag();
-    $csv->column_names(qw( biblionumber url text ));
-    $csv->getline_hr($fh);                         #drop the first line
+    my $good_rows;
+    my $bad_rows;
 
-    while ( my $row = $csv->getline_hr($fh) ) {
-        my $result
-            = { biblionumber => $row->{biblionumber}, url => $row->{url}, text => $row->{text} };
-        my $biblio = Koha::Biblios->find( $row->{biblionumber} );
-        $result->{title} = ( defined $biblio ) ? $biblio->title : '';
+    foreach my $biblionumber ( keys %{ $all_updates } ) {
 
-        if ($biblio) {
-            push @good_rows, $result;
-        }
-        else {
-            push @bad_rows, $result;
+        my $biblio = Koha::Biblios->find($biblionumber);
+        if ( defined $biblio ) {
+            # biblio exists
+            $good_rows->{ $biblionumber }->{ updates } = $all_updates->{$biblionumber};
+            $good_rows->{ $biblionumber }->{ title }   = $biblio->title // '';
+        } else {
+            # biblio doesn't exist
+            $bad_rows->{ $biblionumber }->{ updates }  = $all_updates->{$biblionumber};
         }
     }
-    $csv->eof or $csv->error_diag();
+
     close $fh;
 
-    $template = $self->get_template( { file => 'tool-step-results.tt' } );
+    $template = $self->get_template({ file => 'tool-step-results.tt' });
     $template->param(
-        good_rows      => \@good_rows,
-        bad_rows       => \@bad_rows,
+        good_rows      => $good_rows,
+        bad_rows       => $bad_rows,
         uploadedfileid => $id
     );
 
@@ -134,45 +132,39 @@ sub tool_step_apply {
 
     my $template;
 
-    my $id  = $cgi->param('uploadedfileid');
-    my $rec = Koha::Upload->new->get( { id => $id, filehandle => 1 } );
-    my $fh  = $rec->{fh};
+    my $append = $cgi->param('append') // 0;
+    my $id     = $cgi->param('uploadedfileid');
+    my $rec    = Koha::Upload->new->get({ id => $id, filehandle => 1 });
+    my $fh     = $rec->{fh};
 
-    my @biblios;
-    my @bad_rows;
+    my $all_updates = _read_csv($fh);
 
-    my $csv = Text::CSV->new( { binary => 1 } )    # should set binary attribute.
-        or die "Cannot use CSV: " . Text::CSV->error_diag();
-    $csv->column_names(qw( biblionumber url text ));
-    $csv->getline_hr($fh);                         #drop the first line
+    my $good_rows;
+    my $bad_rows;
 
-    while ( my $row = $csv->getline_hr($fh) ) {
-        my $result
-            = { biblionumber => $row->{biblionumber}, url => $row->{url}, text => $row->{text} };
-        my $biblio = Koha::Biblios->find( $row->{biblionumber} );
+    foreach my $biblionumber ( keys %{ $all_updates } ) {
 
-        if ($biblio) {
+        my $biblio = Koha::Biblios->find($biblionumber);
+        if ( defined $biblio ) {
+            # biblio exists
             # Get the MARC record as Koha does
             my $record          = GetMarcBiblio( $biblio->biblionumber );
             my $fw              = GetFrameworkCode( $biblio->biblionumber );
             my $modified_record = $record->clone();
-            _add_url( $modified_record, $row->{url}, $row->{text} );
+            _add_urls( $modified_record, $all_updates->{ $biblionumber }, $append );
             ModBiblio( $modified_record, $biblio->biblionumber, $fw );
-            push @biblios, $biblio;
-        }
-        else {
-            push @bad_rows, $result;
+        } else {
+            # biblio doesn't exist
+            $bad_rows->{ $biblionumber }->{ updates }  = $all_updates->{$biblionumber};
         }
     }
 
-    $csv->eof or $csv->error_diag();
     close $fh;
-    Koha::Upload->new->delete( { id => $id, filehandle => 1 } );
+    Koha::Upload->new->delete({ id => $id, filehandle => 1 });
 
-    $template = $self->get_template( { file => 'tool-step-final.tt' } );
+    $template = $self->get_template({ file => 'tool-step-final.tt' });
     $template->param(
-        good_rows      => undef,
-        bad_rows       => \@bad_rows,
+        bad_rows       => $bad_rows,
         uploadedfileid => $id
     );
 
@@ -189,7 +181,7 @@ sub tool_step_cancel {
     Koha::Upload->new->delete( { id => $id } )
         if defined $id;
 
-    my $template = $self->get_template( { file => 'tool-step-welcome.tt' } );
+    my $template = $self->get_template({ file => 'tool-step-welcome.tt' });
 
     print $cgi->header( -charset => 'utf-8' );
     print $template->output();
@@ -201,15 +193,20 @@ sub show_diff {
     my $cgi  = $self->{cgi};
 
     my $biblionumber = $cgi->param('biblionumber');
-    my $url          = $cgi->param('url');
-    my $text         = $cgi->param('text');
     my $id           = $cgi->param('uploadedfileid');
+    my $append       = $cgi->param('append') // 0;
+
+    my $rec = Koha::Upload->new->get({ id => $id, filehandle => 1 });
+    my $fh  = $rec->{fh};
+
+    my $all_updates = _read_csv($fh);
+    my $updates = $all_updates->{$biblionumber};
 
     my $record          = GetMarcBiblio($biblionumber);
     my $modified_record = $record->clone();
-    _add_url( $modified_record, $url, $text );
+    _add_urls( $modified_record, $updates, $append );
 
-    my $template = $self->get_template( { file => 'marc-diff.tt' } );
+    my $template = $self->get_template({ file => 'marc-diff.tt' });
     $template->param(
         BIBLIONUMBER    => $biblionumber,
         MARC_FORMATTED1 => $record->as_formatted,
@@ -220,6 +217,48 @@ sub show_diff {
     print $cgi->header( -charset => 'utf-8' );
     print $template->output();
 
+}
+
+sub _read_csv {
+    my ( $fh ) = shift;
+
+    my $updates;
+
+    my $csv = Text::CSV->new( { binary => 1 } )    # should set binary attribute.
+        or die "Cannot use CSV: " . Text::CSV->error_diag();
+    $csv->column_names(qw( biblionumber url text ));
+    $csv->getline_hr($fh);                         #drop the first line
+
+    while ( my $row = $csv->getline_hr($fh) ) {
+        push @{ $updates->{ $row->{biblionumber} } },
+                { url => $row->{url}, text => $row->{text} };
+    }
+
+    $csv->eof or $csv->error_diag();
+    close $fh;
+
+    return $updates;
+}
+
+sub _add_urls {
+    my ( $record, $updates, $append, $criteria ) = @_;
+    # Default to IA links
+    $criteria //= qr/^(http\:|https\:)\/\/archive\.org/;
+
+    # Check if we need to delete the matching fields first, do so
+    if ( !$append ) {
+        my @url_fields = $record->field('856');
+        foreach my $url_field ( @url_fields ) {
+            my $subfield_u = $url_field->subfield('u');
+            if ( $subfield_u =~ m/$criteria/ ) {
+                $record->delete_fields($url_field);
+            }
+        }
+    }
+    # Actually add the URLs
+    foreach my $update ( @{ $updates } ) {
+        _add_url( $record, $update->{url}, $update->{text} );
+    }
 }
 
 sub _add_url {

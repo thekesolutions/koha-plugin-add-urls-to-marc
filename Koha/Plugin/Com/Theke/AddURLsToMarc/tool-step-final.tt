@@ -21,7 +21,7 @@
 
     <p>Imported URLs into records in the catalog.<p>
 
-  [% IF bad_rows.size > 0 %]
+  [% IF bad_rows && bad_rows.size > 0 %]
     <h4>Records with problems</h4>
     <table>
         <tr>
@@ -30,11 +30,23 @@
             <th>Public note</th>
             <th>Error</th>
         </tr>
-      [% FOREACH row IN bad_rows %]
+      [% FOREACH biblionumber IN bad_rows.keys %]
         <tr>
-            <td>[% row.biblionumber %]</td>
-            <td>[% row.url %]</td>
-            <td>[% row.text %]</td>
+            <td>[% biblionumber %]</td>
+            <td>
+              <table>
+          [% FOREACH row IN bad_rows.$biblionumber.updates %]
+                <tr><td>[% row.url %]</td></tr>
+          [% END %]
+              </table>
+            </td>
+            <td>
+              <table>
+          [% FOREACH row IN bad_rows.$biblionumber.updates %]
+                <tr><td>[% row.text %]</td></tr>
+          [% END %]
+              </table>
+            </td>
             <td><span>Record doesn't exist on DB<span></td>
         </tr>
     [% END %]

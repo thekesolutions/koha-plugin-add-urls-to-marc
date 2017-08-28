@@ -29,7 +29,7 @@ $(document).ready(function(){
     <div class="yui-b">
     <h3>Import URLs into records</h3><br/>
 
-  [% IF bad_rows.size > 0 %]
+  [% IF bad_rows && bad_rows.size > 0 %]
     <h4>Records with problems</h4>
     <table>
         <tr>
@@ -38,18 +38,30 @@ $(document).ready(function(){
             <th>Public note</th>
             <th>Error</th>
         </tr>
-      [% FOREACH row IN bad_rows %]
+      [% FOREACH biblionumber IN bad_rows.keys %]
         <tr>
-            <td>[% row.biblionumber %]</td>
-            <td>[% row.url %]</td>
-            <td>[% row.text %]</td>
+            <td>[% biblionumber %]</td>
+            <td>
+              <table>
+          [% FOREACH row IN bad_rows.$biblionumber.updates %]
+                <tr><td>[% row.url %]</td></tr>
+          [% END %]
+              </table>
+            </td>
+            <td>
+              <table>
+          [% FOREACH row IN bad_rows.$biblionumber.updates %]
+                <tr><td>[% row.text %]</td></tr>
+          [% END %]
+              </table>
+            </td>
             <td><span>Record doesn't exist on DB<span></td>
         </tr>
     [% END %]
     </table>
   [% END %]
 
-  [% IF good_rows.size > 0 %]
+  [% IF good_rows && good_rows.size > 0 %]
     <br/><h4>Records to update</h4>
     <table>
         <tr>
@@ -59,13 +71,26 @@ $(document).ready(function(){
             <th>Public note</th>
             <th>Diff</th>
         </tr>
-      [% FOREACH row IN good_rows %]
+      [% FOREACH biblionumber IN good_rows.keys %]
         <tr>
-            <td>[% row.biblionumber %]</td>
-            <td>[% row.title %]</td>
-            <td>[% row.url %]</td>
-            <td>[% row.text %]</td>
-            <td><a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3ATheke%3A%3AAddURLsToMarc&method=tool&biblionumber=[% row.biblionumber | uri %]&url=[% row.url | uri %]&text=[% row.text | uri %]&step=diff" target="_blank" class="btn btn-default diff-button">Diff</a></td>
+            <td>[% biblionumber %]</td>
+            <td>[% good_rows.$biblionumber.title %]</td>
+            <td>
+              <table>
+          [% FOREACH row IN good_rows.$biblionumber.updates %]
+                <tr><td>[% row.url %]</td></tr>
+          [% END %]
+              </table>
+            </td>
+            <td>
+              <table>
+          [% FOREACH row IN good_rows.$biblionumber.updates %]
+                <tr><td>[% row.text %]</td></tr>
+          [% END %]
+              </table>
+
+            </td>
+            <td><a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3ATheke%3A%3AAddURLsToMarc&method=tool&uploadedfileid=[% uploadedfileid %]&biblionumber=[% biblionumber | uri %]&step=diff" target="_blank" class="btn btn-default diff-button">Diff</a></td>
         </tr>
     [% END %]
     </table>
