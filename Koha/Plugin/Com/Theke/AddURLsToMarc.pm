@@ -17,7 +17,7 @@ use MARC::Record;
 use MARC::Field;
 use Text::CSV;
 
-our $VERSION = "1.0";
+our $VERSION = "1.1";
 
 our $metadata = {
     name            => 'Add URLs to MARC records',
@@ -26,7 +26,7 @@ our $metadata = {
     date_authored   => '2016-10-17',
     date_updated    => '2016-10-17',
     minimum_version => '16.1100000',
-    maximum_version => undef,
+    maximum_version => '17.0599999',
     version         => $VERSION,
 };
 
@@ -147,7 +147,7 @@ sub tool_step_apply {
         if ( defined $biblio ) {
             # biblio exists
             # Get the MARC record as Koha does
-            my $record          = GetMarcBiblio({ biblionumber => $biblio->biblionumber });
+            my $record          = GetMarcBiblio( $biblio->biblionumber );
             my $fw              = GetFrameworkCode( $biblio->biblionumber );
             my $modified_record = $record->clone();
             _add_urls( $modified_record, $all_updates->{ $biblionumber }, $append );
@@ -200,7 +200,7 @@ sub show_diff {
     my $all_updates = _read_csv($fh);
     my $updates = $all_updates->{$biblionumber};
 
-    my $record          = GetMarcBiblio({ biblionumber => $biblionumber });
+    my $record          = GetMarcBiblio( $biblionumber );
     my $modified_record = $record->clone();
     _add_urls( $modified_record, $updates, $append );
 
