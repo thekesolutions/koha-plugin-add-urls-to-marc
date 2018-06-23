@@ -1,0 +1,30 @@
+{
+  "name": "koha-plugin-add-urls-to-marc",
+  "version": "1.2.0",
+  "previous_version": "1.1.0",
+  "description": "Koha import URLs to MARC plugin",
+  "devDependencies": {
+    "gulp": "^4.0.0",
+    "gulp-cli": "^2.0.1",
+    "gulp-github-release": "^1.2.1",
+    "gulp-run": "^1.7.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thekesolutions/koha-plugin-add-urls-to-marc.git"
+  },
+  "author": "Tomas Cohen Arazi <tomascohen@theke.io>",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/thekesolutions/koha-plugin-add-urls-to-marc/issues"
+  },
+  "homepage": "https://github.com/thekesolutions/koha-plugin-add-urls-to-marc#readme",
+  "dependencies": {
+    "datetime": "0.0.3",
+    "jsonfile": "^4.0.0",
+    "node-datetime": "^2.0.6"
+  }
+}
